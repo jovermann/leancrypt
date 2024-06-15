@@ -7,6 +7,9 @@
 
 #include "HashSha512.hpp"
 #include "refSha512.hpp"
+#include "HashSha256.hpp"
+#include "refSha256.hpp"
+#include "Hash.hpp"
 
 #include "MiscUtils.hpp"
 #include "CommandLineParser.hpp"
@@ -17,55 +20,64 @@
 /// Command line options.
 static unsigned verbose = 0;
 
-/// Global error state.
-static unsigned errors = 0;
 
 /// Print error.
-static void checkHash(const std::string& testName, const std::string& expectedHash, const std::string& actualHash, const std::string_view& hashName, const std::string& input)
+static unsigned checkHash(const std::string& testName, const std::string& expectedHash, const std::string& actualHash, const std::string_view& hashName, const std::string& input)
 {
     if (expectedHash == actualHash)
     {
-        return;
+        return 0;
     }
-    
-    errors++;
-    std::cout << "FAILED: " << testName << ": " << hashName << ":\n";
-    std::cout << "    input=\"" << input << "\"\n";
-    std::cout << "    expected=\"" << expectedHash << "\"\n";
-    std::cout << "    actual  =\"" << actualHash << "\"\n";
+
+    std::cout << "FAILED: " << testName << ": " << hashName << ":";
+    std::cout << " exp=\"" << expectedHash << "\"";
+    std::cout << " act=\"" << actualHash << "\"";
+    std::cout << " len=" << input.length();
+//    std::cout << " inp=\"" << input << "\"";
+    std::cout << "\n";
+    return 1;
 }
 
 /// Test a single hash value.
 template<class HashClass>
-void testHash(const std::string& input, const std::string& hexReferenceHash)
-{    
+unsigned testHash(const std::string& input, const std::string& hexReferenceHash)
+{
+    unsigned errors = 0;
+
     // Test adding whole input at once.
-    checkHash("all", hexReferenceHash, ut1::hexlify(calcHash<HashClass>(input)), ut1::typeName<HashClass>(), input);
+    errors += checkHash("all", hexReferenceHash, ut1::hexlify(calcHash<HashClass>(input)), ut1::typeName<HashClass>(), input);
 
     // Test adding individual bytes of data.
     HashClass hasher;
     for (size_t i = 0; i < input.length(); i++)
     {
-        hasher.update(input.substr(i, 1));
+        updateHash(hasher, input.substr(i, 1));
     }
-    checkHash("single-char", hexReferenceHash, ut1::hexlify(hasher.finalize()), ut1::typeName<HashClass>(), input);
+    errors += checkHash("single-char", hexReferenceHash, ut1::hexlify(hasher.finalize()), ut1::typeName<HashClass>(), input);
+
+    return errors;
 }
 
 /// Test a list of reference values.
 /// Each hash is for the input "a"* i where i is in range [0..size_of_ref-1].
 template<class HashClass>
-void testRefList(const char *hashes[])
-{    
-    for (size_t i = 0; hashes[i]; i++)
-    {        
-        testHash<HashSha512>(std::string(i, 'a'), hashes[i]);
-    }
-}
-
-/// Run tests. 
-void runTests()
+unsigned testRefList(const char *hashes[])
 {
-    testRefList<HashSha512>(refSha512);
+    /// Global error state.
+    unsigned errors = 0;
+    for (size_t i = 0; hashes[i] && (i < 10); i++)
+    {
+        errors += testHash<HashClass>(std::string(i, 'a'), hashes[i]);
+    }
+    if (errors)
+    {
+        std::cout << ut1::typeName<HashClass>() << ": " << std::dec << errors << " error(s) found\n";
+    }
+    else
+    {
+        std::cout << ut1::typeName<HashClass>() << ": ok\n";
+    }
+    return errors;
 }
 
 /// Run benchmark on a specific hasher.
@@ -84,13 +96,21 @@ void runBench(size_t size)
     }
 }
 
+/// Run tests.
+void runTests()
+{
+    unsigned errors = 0;
+    errors += testRefList<HashSha512>(refSha512);
+    errors += testRefList<HashSha256>(refSha256);
+    std::cout << std::dec << errors << " error(s) found total\n";
+}
 
 /// Run benchmarks.
 void runBenchmarks(size_t size)
-{    
+{
     runBench<HashSha512>(size);
+    runBench<HashSha256>(size);
 }
-
 
 /// Main.
 int main(int argc, const char *argv[])
@@ -107,23 +127,23 @@ int main(int argc, const char *argv[])
                                            "\n",
         "\n"
         "$programName version $version *** Copyright (c) 2024 Johannes Overmann *** https://github.com/jovermann/leancrypt",
-        "0.0.1");
+        "0.0.2");
 
     cl.addHeader("\nOptions:\n");
     cl.addOption('t', "test", "Run tests (e.g. check functions against reference data).");
     cl.addOption('b', "benchmark", "Run benchmarks.");
     cl.addOption('s', "size", "Data size for benchmarks in MBytes.", "SIZE", "256");
     cl.addOption('v', "verbose", "Increase verbosity. Specify multiple times to be more verbose.");
-    
+
     // Parse command line options.
     cl.parse(argc, argv);
     verbose = cl.getCount("verbose");
-    
+
     // Run everything by default.
     if (!(cl("test") || cl("benchmark")))
     {
         cl.setValue("test");
-        cl.setValue("benchmark");        
+        cl.setValue("benchmark");
     }
 
     try
@@ -131,7 +151,6 @@ int main(int argc, const char *argv[])
         if (cl("test"))
         {
             runTests();
-            std::cout << std::dec << errors << " error(s) found\n";
         }
         if (cl("benchmark"))
         {
@@ -141,7 +160,7 @@ int main(int argc, const char *argv[])
     catch (const std::exception& e)
     {
         cl.error(e.what());
-    }    
+    }
 
     return 0;
 }
