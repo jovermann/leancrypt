@@ -11,6 +11,8 @@
 #include "refSha256.hpp"
 #include "HashSha1.hpp"
 #include "refSha1.hpp"
+#include "HashMd5.hpp"
+#include "refMd5.hpp"
 #include "Hash.hpp"
 
 #include "MiscUtils.hpp"
@@ -49,6 +51,7 @@ unsigned testHash(const std::string& input, const std::string& hexReferenceHash)
     // Test adding whole input at once.
     errors += checkHash("all", hexReferenceHash, ut1::hexlify(calcHash<HashClass>(input)), ut1::typeName<HashClass>(), input);
 
+#if 1
     // Test adding individual bytes of data.
     HashClass hasher;
     for (size_t i = 0; i < input.length(); i++)
@@ -56,6 +59,7 @@ unsigned testHash(const std::string& input, const std::string& hexReferenceHash)
         updateHash(hasher, input.substr(i, 1));
     }
     errors += checkHash("single-char", hexReferenceHash, ut1::hexlify(hasher.finalize()), ut1::typeName<HashClass>(), input);
+#endif
 
     return errors;
 }
@@ -67,7 +71,7 @@ unsigned testRefList(const char *hashes[])
 {
     /// Global error state.
     unsigned errors = 0;
-    for (size_t i = 0; hashes[i] && (i < 10); i++)
+    for (size_t i = 0; hashes[i]; i++)
     {
         errors += testHash<HashClass>(std::string(i, 'a'), hashes[i]);
     }
@@ -105,6 +109,7 @@ void runTests()
     errors += testRefList<HashSha512>(refSha512);
     errors += testRefList<HashSha256>(refSha256);
     errors += testRefList<HashSha1>(refSha1);
+    errors += testRefList<HashMd5>(refMd5);
     std::cout << std::dec << errors << " error(s) found total\n";
 }
 
@@ -114,6 +119,7 @@ void runBenchmarks(size_t size)
     runBench<HashSha512>(size);
     runBench<HashSha256>(size);
     runBench<HashSha1>(size);
+    runBench<HashMd5>(size);
 }
 
 /// Main.
@@ -160,6 +166,7 @@ int main(int argc, const char *argv[])
         {
             runBenchmarks(cl.getUInt("size") << 20);
         }
+        std::cout << "Done.\n";
     }
     catch (const std::exception& e)
     {

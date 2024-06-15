@@ -272,4 +272,5 @@ static const char *refSha1[] =
     "0c1038883670f8a0203e053eaf67dc2dec280b42",
     "57f53ed5598524493ec576770aaf3bb10063e3ce",
     "b39d82bf2b963970701bb36ce4e5fd7ddff600a6",
+    nullptr
 };

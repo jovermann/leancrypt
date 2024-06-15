@@ -87,7 +87,7 @@ public:
 
 private:
     /// Reverse bytes in 64-bit word on little-endian machines.
-    inline uint64_t byteSwap64LE(uint64_t x)
+    uint64_t byteSwap64LE(uint64_t x)
     {
 #ifdef __BIG_ENDIAN__
         return x;
