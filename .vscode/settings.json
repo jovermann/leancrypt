@@ -1,0 +1,28 @@
+{
+    "C_Cpp.default.compilerPath": "/usr/bin/clang++",
+    "C_Cpp.default.cppStandard": "c++23",
+    "C_Cpp.default.cStandard": "c23",
+    "VsCodeTaskButtons.showCounter": false,
+    "VsCodeTaskButtons.tasks": [
+        {
+            "label": "$(debug-start) Run",
+            "task": "run",        
+        },
+        {
+            "label": "$(notebook-move-down) Build",
+            "task": "build",            
+        },        
+        {
+            "label": "$(search-refresh) Rebuild",
+            "task": "rebuild",        
+        },        
+        {
+            "label": "$(notebook-delete-cell) Clean",
+            "task": "clean",        
+        }
+    ],
+    "files.associations": {
+        "vector": "cpp",
+        "string": "cpp"
+    }
+}
