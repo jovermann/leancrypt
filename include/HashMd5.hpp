@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <bit>
 
 /// MD5 implementation according to RFC1321.
 /// https://datatracker.ietf.org/doc/html/rfc1321
@@ -98,11 +99,10 @@ private:
     }
 
     /// Helper functions.
-    static uint32_t rol(uint32_t b, uint32_t c) { return (b << c) | (b >> (32 - c)); }
-    static void FF(uint32_t &a, uint32_t b, uint32_t c, uint32_t d, uint32_t x, uint32_t s, uint32_t ac) { a += ((b & c) | ((~b) & d)) + x + ac; a = rol(a, s); a += b; }
-    static void GG(uint32_t &a, uint32_t b, uint32_t c, uint32_t d, uint32_t x, uint32_t s, uint32_t ac) { a += ((b & d) | (c & (~d))) + x + ac; a = rol(a, s); a += b; }
-    static void HH(uint32_t &a, uint32_t b, uint32_t c, uint32_t d, uint32_t x, uint32_t s, uint32_t ac) { a += (b ^ c ^ d)            + x + ac; a = rol(a, s); a += b; }
-    static void II(uint32_t &a, uint32_t b, uint32_t c, uint32_t d, uint32_t x, uint32_t s, uint32_t ac) { a += (c ^ (b | (~d)))       + x + ac; a = rol(a, s); a += b; }
+    static void FF(uint32_t &a, uint32_t b, uint32_t c, uint32_t d, uint32_t x, uint32_t s, uint32_t ac) { a += ((b & c) | ((~b) & d)) + x + ac; a = std::rotl(a, s); a += b; }
+    static void GG(uint32_t &a, uint32_t b, uint32_t c, uint32_t d, uint32_t x, uint32_t s, uint32_t ac) { a += ((b & d) | (c & (~d))) + x + ac; a = std::rotl(a, s); a += b; }
+    static void HH(uint32_t &a, uint32_t b, uint32_t c, uint32_t d, uint32_t x, uint32_t s, uint32_t ac) { a += (b ^ c ^ d)            + x + ac; a = std::rotl(a, s); a += b; }
+    static void II(uint32_t &a, uint32_t b, uint32_t c, uint32_t d, uint32_t x, uint32_t s, uint32_t ac) { a += (c ^ (b | (~d)))       + x + ac; a = std::rotl(a, s); a += b; }
 
     /// Process block.
     void processBlock(const uint8_t *data8)

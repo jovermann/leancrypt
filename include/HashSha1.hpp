@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <bit>
 
 /// SHA-1 implementation according to FIPS PUB 180-4.
 /// https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf
@@ -98,7 +99,6 @@ private:
     }
 
     /// Helper functions.
-    static uint32_t rol(uint32_t x, uint32_t y) { return (x << y) | (x >> (32 - y)); }
     static uint32_t Ch(uint32_t x, uint32_t y, uint32_t z) { return (x & y) ^ ((~x) & z); }
     static uint32_t Maj(uint32_t x, uint32_t y, uint32_t z) { return (x & y) ^ (x & z) ^ (y & z); }
     static uint32_t Par(uint32_t x, uint32_t y, uint32_t z) { return x ^ y ^ z; }
@@ -117,54 +117,54 @@ private:
         {
             W[t] = byteSwap32LE(*reinterpret_cast<const uint32_t *>(data));
             data += 4;
-            uint32_t T = rol(a, 5) + Ch(b, c, d) + e + 0x5a827999 + W[t];
+            uint32_t T = std::rotl(a, 5) + Ch(b, c, d) + e + 0x5a827999 + W[t];
             e = d;
             d = c;
-            c = rol(b, 30);
+            c = std::rotl(b, 30);
             b = a;
             a = T;
         }
 
         for (unsigned t = 16; t < 20; t++)
         {
-            W[t & 0xf] = rol(W[(t + 13) & 0x0f] ^ W[(t + 8) & 0x0f] ^ W[(t + 2) & 0xf] ^ W[t & 0xf], 1);
-            uint32_t T = rol(a, 5) + Ch(b, c, d) + e + 0x5a827999 + W[t & 0xf];
+            W[t & 0xf] = std::rotl(W[(t + 13) & 0x0f] ^ W[(t + 8) & 0x0f] ^ W[(t + 2) & 0xf] ^ W[t & 0xf], 1);
+            uint32_t T = std::rotl(a, 5) + Ch(b, c, d) + e + 0x5a827999 + W[t & 0xf];
             e = d;
             d = c;
-            c = rol(b, 30);
+            c = std::rotl(b, 30);
             b = a;
             a = T;
         }
 
         for (unsigned t = 20; t < 40; t++)
         {
-            W[t & 0xf] = rol(W[(t + 13) & 0x0f] ^ W[(t + 8) & 0x0f] ^ W[(t + 2) & 0xf] ^ W[t & 0xf], 1);
-            uint32_t T = rol(a, 5) + Par(b, c, d) + e + 0x6ed9eba1 + W[t & 0xf];
+            W[t & 0xf] = std::rotl(W[(t + 13) & 0x0f] ^ W[(t + 8) & 0x0f] ^ W[(t + 2) & 0xf] ^ W[t & 0xf], 1);
+            uint32_t T = std::rotl(a, 5) + Par(b, c, d) + e + 0x6ed9eba1 + W[t & 0xf];
             e = d;
             d = c;
-            c = rol(b, 30);
+            c = std::rotl(b, 30);
             b = a;
             a = T;
         }
 
         for (unsigned t = 40; t < 60; t++)
         {
-            W[t & 0xf] = rol(W[(t + 13) & 0x0f] ^ W[(t + 8) & 0x0f] ^ W[(t + 2) & 0xf] ^ W[t & 0xf], 1);
-            uint32_t T = rol(a, 5) + Maj(b, c, d) + e + 0x8f1bbcdc + W[t & 0xf];
+            W[t & 0xf] = std::rotl(W[(t + 13) & 0x0f] ^ W[(t + 8) & 0x0f] ^ W[(t + 2) & 0xf] ^ W[t & 0xf], 1);
+            uint32_t T = std::rotl(a, 5) + Maj(b, c, d) + e + 0x8f1bbcdc + W[t & 0xf];
             e = d;
             d = c;
-            c = rol(b, 30);
+            c = std::rotl(b, 30);
             b = a;
             a = T;
         }
 
         for (unsigned t = 60; t < 80; t++)
         {
-            W[t & 0xf] = rol(W[(t + 13) & 0x0f] ^ W[(t + 8) & 0x0f] ^ W[(t + 2) & 0xf] ^ W[t & 0xf], 1);
-            uint32_t T = rol(a, 5) + Par(b, c, d) + e + 0xca62c1d6 + W[t & 0xf];
+            W[t & 0xf] = std::rotl(W[(t + 13) & 0x0f] ^ W[(t + 8) & 0x0f] ^ W[(t + 2) & 0xf] ^ W[t & 0xf], 1);
+            uint32_t T = std::rotl(a, 5) + Par(b, c, d) + e + 0xca62c1d6 + W[t & 0xf];
             e = d;
             d = c;
-            c = rol(b, 30);
+            c = std::rotl(b, 30);
             b = a;
             a = T;
         }

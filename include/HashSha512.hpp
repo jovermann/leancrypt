@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <bit>
 
 /// SHA-512 implementation according to FIPS PUB 180-4.
 /// https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf
@@ -99,11 +100,10 @@ private:
     }
 
     /// Helper functions.
-    static uint64_t ror(uint64_t x, uint64_t y) { return (x >> y) | (x << (64 - y)); }
-    static uint64_t Sig0(uint64_t x) { return ror(x, 28) ^ ror(x, 34) ^ ror(x, 39); }
-    static uint64_t Sig1(uint64_t x) { return ror(x, 14) ^ ror(x, 18) ^ ror(x, 41); }
-    static uint64_t sig0(uint64_t x) { return ror(x, 1) ^ ror(x, 8) ^ (x >> 7); }
-    static uint64_t sig1(uint64_t x) { return ror(x, 19) ^ ror(x, 61) ^ (x >> 6); }
+    static uint64_t Sig0(uint64_t x) { return std::rotr(x, 28) ^ std::rotr(x, 34) ^ std::rotr(x, 39); }
+    static uint64_t Sig1(uint64_t x) { return std::rotr(x, 14) ^ std::rotr(x, 18) ^ std::rotr(x, 41); }
+    static uint64_t sig0(uint64_t x) { return std::rotr(x, 1) ^ std::rotr(x, 8) ^ (x >> 7); }
+    static uint64_t sig1(uint64_t x) { return std::rotr(x, 19) ^ std::rotr(x, 61) ^ (x >> 6); }
     static uint64_t Ch(uint64_t x, uint64_t y, uint64_t z) { return (x & y) ^ ((~x) & z); }
     static uint64_t Maj(uint64_t x, uint64_t y, uint64_t z) { return (x & y) ^ (x & z) ^ (y & z); }
 

@@ -8,7 +8,7 @@
 # For clang:
 CXXFLAGS ?= -O3 -Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-padded -Wno-shorten-64-to-32 -Wno-missing-prototypes -Wno-sign-conversion -Wno-implicit-int-conversion -Wno-poison-system-directories -fcomment-block-commands=n -Wno-string-conversion
 CPPFLAGS ?= -pedantic -Iinclude -I.
-CXXSTD ?= -std=c++17 # Min c++17 for string_view.
+CXXSTD ?= -std=c++20 # Min c++20 for rotl/rotr
 
 BUILDDIR=build
 SOURCES = $(wildcard src/*.cpp)
@@ -23,7 +23,7 @@ $(TARGET): $(OBJECTS)
 
 build/%.o: %.cpp build/%.d
 	$(CXX) $(CXXSTD) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
-        
+
 build/%.d: %.cpp Makefile
 	@mkdir -p $(@D)
 	$(CXX) $(CXXSTD) $(CPPFLAGS) -MM -MQ $@ $< -o $@
