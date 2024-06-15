@@ -9,6 +9,8 @@
 #include "refSha512.hpp"
 #include "HashSha256.hpp"
 #include "refSha256.hpp"
+#include "HashSha1.hpp"
+#include "refSha1.hpp"
 #include "Hash.hpp"
 
 #include "MiscUtils.hpp"
@@ -71,11 +73,11 @@ unsigned testRefList(const char *hashes[])
     }
     if (errors)
     {
-        std::cout << ut1::typeName<HashClass>() << ": " << std::dec << errors << " error(s) found\n";
+        std::cout << std::left << std::setw(10) << ut1::typeName<HashClass>() << ": " << std::dec << errors << " error(s) found\n";
     }
     else
     {
-        std::cout << ut1::typeName<HashClass>() << ": ok\n";
+        std::cout << std::left << std::setw(10) << ut1::typeName<HashClass>() << ": ok\n";
     }
     return errors;
 }
@@ -89,7 +91,7 @@ void runBench(size_t size)
     std::vector<uint8_t> hash = calcHash<HashClass>(data);
     double elapsed = ut1::getTimeSec() - start;
     double rate = size / elapsed;
-    std::cout << ut1::typeName<HashClass>() << ": " << std::fixed << std::dec << std::setprecision(1) << std::setw(6) << rate / 1024.0 / 1024.0 << "MB/s (" << size << " bytes in " << std::setprecision(3) << elapsed << "s)\n";
+    std::cout << std::left << std::setw(10) << ut1::typeName<HashClass>() << ": " << std::fixed << std::dec << std::setprecision(1) << std::setw(6) << rate / 1024.0 / 1024.0 << "MB/s (" << size << " bytes in " << std::setprecision(3) << elapsed << "s)\n";
     if (verbose >= 2)
     {
         std::cout << ut1::hexlify(hash) << "\n";
@@ -102,6 +104,7 @@ void runTests()
     unsigned errors = 0;
     errors += testRefList<HashSha512>(refSha512);
     errors += testRefList<HashSha256>(refSha256);
+    errors += testRefList<HashSha1>(refSha1);
     std::cout << std::dec << errors << " error(s) found total\n";
 }
 
@@ -110,6 +113,7 @@ void runBenchmarks(size_t size)
 {
     runBench<HashSha512>(size);
     runBench<HashSha256>(size);
+    runBench<HashSha1>(size);
 }
 
 /// Main.
