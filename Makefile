@@ -7,6 +7,7 @@
 #CXXFLAGS ?= -Wall -Wextra -O3
 # For clang:
 CXXFLAGS ?= -O3 -Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-padded -Wno-shorten-64-to-32 -Wno-missing-prototypes -Wno-sign-conversion -Wno-implicit-int-conversion -Wno-poison-system-directories -fcomment-block-commands=n -Wno-string-conversion
+#CXXFLAGS ?= -g -Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-padded -Wno-shorten-64-to-32 -Wno-missing-prototypes -Wno-sign-conversion -Wno-implicit-int-conversion -Wno-poison-system-directories -fcomment-block-commands=n -Wno-string-conversion
 CPPFLAGS ?= -pedantic -Iinclude -I.
 CXXSTD ?= -std=c++20 # Min c++20 for rotl/rotr
 
@@ -20,6 +21,7 @@ default: $(TARGET)
 
 $(TARGET): $(OBJECTS)
 	$(CXX) $^ -o $@
+	@echo "Done."
 
 build/%.o: %.cpp build/%.d
 	$(CXX) $(CXXSTD) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@

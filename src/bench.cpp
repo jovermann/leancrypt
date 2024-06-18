@@ -5,6 +5,11 @@
 // Distributed under the Boost Software License, Version 1.0.
 // (See accompanying file LICENSE or copy at https://www.boost.org/LICENSE_1_0.txt)
 
+#include "HashSha3.hpp"
+#include "refSha3_224.hpp"
+#include "refSha3_256.hpp"
+#include "refSha3_384.hpp"
+#include "refSha3_512.hpp"
 #include "HashSha512.hpp"
 #include "refSha512.hpp"
 #include "HashSha256.hpp"
@@ -20,6 +25,8 @@
 #include <exception>
 #include <iomanip>
 
+/// Maximum hash name len to align output.
+static const int hashNameLen = 12;
 
 /// Command line options.
 static unsigned verbose = 0;
@@ -77,11 +84,11 @@ unsigned testRefList(const char *hashes[])
     }
     if (errors)
     {
-        std::cout << std::left << std::setw(10) << ut1::typeName<HashClass>() << ": " << std::dec << errors << " error(s) found\n";
+        std::cout << std::left << std::setw(hashNameLen) << ut1::typeName<HashClass>() << ": " << std::dec << errors << " error(s) found\n";
     }
     else
     {
-        std::cout << std::left << std::setw(10) << ut1::typeName<HashClass>() << ": ok\n";
+        std::cout << std::left << std::setw(hashNameLen) << ut1::typeName<HashClass>() << ": ok\n";
     }
     return errors;
 }
@@ -95,7 +102,7 @@ void runBench(size_t size)
     std::vector<uint8_t> hash = calcHash<HashClass>(data);
     double elapsed = ut1::getTimeSec() - start;
     double rate = size / elapsed;
-    std::cout << std::left << std::setw(10) << ut1::typeName<HashClass>() << ": " << std::fixed << std::dec << std::setprecision(1) << std::setw(6) << rate / 1024.0 / 1024.0 << "MB/s (" << size << " bytes in " << std::setprecision(3) << elapsed << "s)\n";
+    std::cout << std::left << std::setw(hashNameLen) << ut1::typeName<HashClass>() << ": " << std::fixed << std::dec << std::setprecision(1) << std::setw(6) << rate / 1024.0 / 1024.0 << "MB/s (" << size << " bytes in " << std::setprecision(3) << elapsed << "s)\n";
     if (verbose >= 2)
     {
         std::cout << ut1::hexlify(hash) << "\n";
@@ -106,6 +113,10 @@ void runBench(size_t size)
 void runTests()
 {
     unsigned errors = 0;
+    errors += testRefList<HashSha3_224>(refSha3_224);
+    errors += testRefList<HashSha3_256>(refSha3_256);
+    errors += testRefList<HashSha3_384>(refSha3_384);
+    errors += testRefList<HashSha3_512>(refSha3_512);
     errors += testRefList<HashSha512>(refSha512);
     errors += testRefList<HashSha256>(refSha256);
     errors += testRefList<HashSha1>(refSha1);
@@ -116,6 +127,10 @@ void runTests()
 /// Run benchmarks.
 void runBenchmarks(size_t size)
 {
+    runBench<HashSha3_224>(size);
+    runBench<HashSha3_256>(size);
+    runBench<HashSha3_384>(size);
+    runBench<HashSha3_512>(size);
     runBench<HashSha512>(size);
     runBench<HashSha256>(size);
     runBench<HashSha1>(size);
