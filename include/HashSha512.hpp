@@ -8,10 +8,8 @@
 #pragma once
 
 #include <stdint.h>
-#include <string>
 #include <vector>
 #include <algorithm>
-#include <bit>
 
 /// SHA-512 implementation according to FIPS PUB 180-4.
 /// https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf
