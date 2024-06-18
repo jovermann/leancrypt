@@ -10,7 +10,7 @@ The code is pure C++ without using any nonportable builtin functions or inline a
 
 Hashes:
 
-* SHA-3/224/245/384/512 hashes
+* SHA-3/224/256/384/512 hashes
 * SHA-512 hash
 * SHA-256 hash
 * SHA-1 hash
