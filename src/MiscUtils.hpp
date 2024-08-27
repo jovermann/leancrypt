@@ -13,6 +13,8 @@
 #include <string>
 #include <cctype>
 #include <regex>
+#include <filesystem>
+#include <sys/stat.h>
 #include <string_view>
 
 // --- Windows support ---
@@ -85,6 +87,9 @@ void addTrailingLfIfMissing(std::string& s);
 /// Convert a string to a regex matching itself by backslash escaping all
 /// regex special chars.
 std::string quoteRegexChars(const std::string& s);
+
+/// Convert UTF-8 to NFD (canonical decomposed form).
+std::string toNfd(const std::string& s);
 
 // --- String utilities: Misc. ---
 
@@ -203,7 +208,7 @@ inline std::string pluralS(size_t n, const std::string& pluralSuffix = "s", cons
 /// Get type name.
 template<typename T> constexpr std::string_view typeNameHelper() { return __PRETTY_FUNCTION__; }
 template<typename T>
-constexpr std::string_view typeName() 
+constexpr std::string_view typeName()
 {
     constexpr std::string_view name = typeNameHelper<T>();
     return name.substr(typeNameHelper<void>().find("void"), name.length() - typeNameHelper<void>().length() + 4);
@@ -217,6 +222,64 @@ std::string readFile(const std::string& filename);
 /// Write string to file.
 void writeFile(const std::string& filename, const std::string& data);
 
+/// File type.
+enum FileType { FT_REGULAR, FT_DIR, FT_SYMLINK, FT_FIFO, FT_BLOCK, FT_CHAR, FT_SOCKET, FT_NON_EXISTING };
+
+/// Get file type.
+FileType getFileType(const std::filesystem::directory_entry& entry, bool followSymlinks = true);
+FileType getFileType(const std::filesystem::path& entry, bool followSymlinks = true);
+
+/// Get file type string.
+std::string getFileTypeStr(const std::filesystem::directory_entry& entry, bool followSymlinks = true);
+std::string getFileTypeStr(const std::filesystem::path& entry, bool followSymlinks = true);
+
+/// Get file type string.
+std::string getFileTypeStr(FileType fileType);
+
+/// Return true iff entry exists.
+/// This returns true for broken symlinks.
+bool fsExists(const std::filesystem::path& entry);
+
+/// Return true iff entry is a directory.
+bool fsIsDirectory(const std::filesystem::path& entry, bool followSymlinks = true);
+
+/// Return true iff entry is a regular file.
+bool fsIsRegular(const std::filesystem::path& entry, bool followSymlinks = true);
+
+/// File stat() info.
+/// This is only used to access stuff which is not accessible through std::filesystem::file_status (major/minor for block devices and st_dev/st_ino for inode identity (hardlink groups)).
+class StatInfo
+{
+public:
+    StatInfo();
+    StatInfo(const std::filesystem::directory_entry& entry, bool followSymlinks);
+
+    dev_t getRDev() const { return statData.st_rdev; }
+    dev_t getDev() const { return statData.st_dev; }
+    ino_t getIno() const { return statData.st_ino; }
+    std::filesystem::file_time_type getMTime() const;
+
+    struct timespec getMTimeSpec() const
+    {
+#ifdef __linux__
+        return statData.st_mtim;
+#endif
+#ifdef __APPLE__
+        return statData.st_mtimespec;
+#endif
+    }
+
+    struct stat statData;
+};
+
+/// Get stat() information.
+StatInfo getStat(const std::filesystem::directory_entry& entry, bool followSymlinks = true);
+
+/// Get last write time (as in std::filesystem::last_write_time()).
+std::filesystem::file_time_type getLastWriteTime(const std::filesystem::directory_entry& entry, bool followSymlinks = true);
+
+/// Set last write time (as in std::filesystem::last_write_time()).
+void setLastWriteTime(const std::filesystem::directory_entry& entry, std::filesystem::file_time_type new_time, bool followSymlinks = true);
 
 // --- Misc ---
 

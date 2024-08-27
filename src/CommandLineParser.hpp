@@ -85,12 +85,15 @@ public:
 
     /// Parse command line.
     /// By default parse() does not return for --help/--version or on errors.
-    /// Return 0 on success.   
+    /// Return 0 on success.
     void parse(int argc, const char* argv[]);
     void parse(int argc, char* argv[]) { parse(argc, const_cast<const char **>(argv)); }
 
     /// Get switch value.
     bool operator()(const std::string& longOption) const { return isSet(longOption); }
+
+    /// Get switch value.
+    bool getBool(const std::string& longOption) const { return isSet(longOption); }
 
     /// Get switch value.
     bool isSet(const std::string& longOption) const { return getCount(longOption) > 0; }
@@ -118,10 +121,16 @@ public:
 
     /// Set option value from within the program.
     /// This is useful to set logical non-static default values.
-    void setValue(const std::string& longOption, const std::string& value = std::string(), bool clearList = true);
+    void setValue(const std::string& longOption, const std::string& value, bool clearList = true);
+
+    /// Set bool option (to true by default).
+    void setOption(const std::string& longOption, bool value = true) { setValue(longOption, value ? "1" : "0"); }
 
     /// Print error and exit.
     [[noreturn]] void error(const std::string& message, int exitStatus = 1) const;
+
+    /// Print error and exit.
+    [[noreturn]] static void reportErrorAndExit(const std::string& message, int exitStatus = 1);
 
     /// Print message and potentially exit.
     void printMessage(const std::string& message) const;
@@ -173,6 +182,9 @@ private:
 
     /// Version text.
     std::string version;
+
+    /// Global instance pointer for reportErrorAndExit().
+    static CommandLineParser *instance;
 };
 
 

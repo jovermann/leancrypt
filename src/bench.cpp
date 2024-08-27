@@ -167,8 +167,8 @@ int main(int argc, const char *argv[])
     // Run everything by default.
     if (!(cl("test") || cl("benchmark")))
     {
-        cl.setValue("test");
-        cl.setValue("benchmark");
+        cl.setOption("test");
+        cl.setOption("benchmark");
     }
 
     try
