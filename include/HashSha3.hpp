@@ -130,6 +130,7 @@ private:
 };
 
 /// SHA-3 variants for the defined hash sizes.
+class HashSha3_128: public HashSha3 { public: HashSha3_128(): HashSha3(128) {} }; // Non-standard, but fast
 class HashSha3_224: public HashSha3 { public: HashSha3_224(): HashSha3(224) {} };
 class HashSha3_256: public HashSha3 { public: HashSha3_256(): HashSha3(256) {} };
 class HashSha3_384: public HashSha3 { public: HashSha3_384(): HashSha3(384) {} };

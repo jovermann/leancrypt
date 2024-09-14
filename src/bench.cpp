@@ -127,6 +127,7 @@ void runTests()
 /// Run benchmarks.
 void runBenchmarks(size_t size)
 {
+    runBench<HashSha3_128>(size);
     runBench<HashSha3_224>(size);
     runBench<HashSha3_256>(size);
     runBench<HashSha3_384>(size);
