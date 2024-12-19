@@ -23,15 +23,12 @@ While the performance is not horrible, leancrypt should not be used for data-hea
 
 Performance on a MacBook M1 Pro:
 
-    HashSha3_224: 588.0 MB/s (268435456 bytes in 0.435s)
-    HashSha3_256: 564.1 MB/s (268435456 bytes in 0.454s)
-    HashSha3_384: 432.8 MB/s (268435456 bytes in 0.591s)
-    HashSha3_512: 300.0 MB/s (268435456 bytes in 0.853s)
-    HashSha512  : 322.4 MB/s (268435456 bytes in 0.794s)
-    HashSha256  : 205.3 MB/s (268435456 bytes in 1.247s)
-    HashSha1    : 398.8 MB/s (268435456 bytes in 0.642s)
-    HashMd5     : 541.5 MB/s (268435456 bytes in 0.473s)
-
-
-
-
+    HashSha3_128: 691.2 MB/s (268435456 bytes in 0.370s)
+    HashSha3_224: 599.2 MB/s (268435456 bytes in 0.427s)
+    HashSha3_256: 561.8 MB/s (268435456 bytes in 0.456s)
+    HashSha3_384: 435.1 MB/s (268435456 bytes in 0.588s)
+    HashSha3_512: 303.5 MB/s (268435456 bytes in 0.844s)
+    HashSha512  : 468.8 MB/s (268435456 bytes in 0.546s)
+    HashSha256  : 294.2 MB/s (268435456 bytes in 0.870s)
+    HashSha1    : 459.3 MB/s (268435456 bytes in 0.557s)
+    HashMd5     : 655.4 MB/s (268435456 bytes in 0.391s)
