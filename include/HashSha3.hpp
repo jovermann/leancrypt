@@ -14,7 +14,7 @@
 
 /// SHA-3 implementation according to FIPS PUB 202.
 /// https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf
-/// Please use class HashSha3_224, HashSha3_256, HashSha3_384 or HashSha3_512 etc instead (see bottom of file).
+/// Please use class HashSha3_128, HashSha3_224, HashSha3_256, HashSha3_384 or HashSha3_512 etc instead (see bottom of file).
 class HashSha3
 {
 public:
