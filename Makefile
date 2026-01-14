@@ -6,8 +6,9 @@
 # For GCC:
 #CXXFLAGS ?= -Wall -Wextra -O3
 # For clang:
-CXXFLAGS ?= -O3 -Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-padded -Wno-shorten-64-to-32 -Wno-missing-prototypes -Wno-sign-conversion -Wno-implicit-int-conversion -Wno-poison-system-directories -fcomment-block-commands=n -Wno-string-conversion -Wno-covered-switch-default
-#CXXFLAGS ?= -g -Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-padded -Wno-shorten-64-to-32 -Wno-missing-prototypes -Wno-sign-conversion -Wno-implicit-int-conversion -Wno-poison-system-directories -fcomment-block-commands=n -Wno-string-conversion -Wno-covered-switch-default
+WARNINGS ?= -Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-padded -Wno-shorten-64-to-32 -Wno-missing-prototypes -Wno-sign-conversion -Wno-implicit-int-conversion -Wno-poison-system-directories -fcomment-block-commands=n -Wno-string-conversion -Wno-covered-switch-default -Wno-unsafe-buffer-usage -Wno-implicit-int-float-conversion -Wno-extra-semi-stmt
+CXXFLAGS ?= -O3 $(WARNINGS)
+#CXXFLAGS ?= -g $(WARNINGS)
 CPPFLAGS ?= -pedantic -I include
 CXXSTD ?= -std=c++23 # C++23 for ranges
 
@@ -34,7 +35,17 @@ clean:
 	rm -rf build $(TARGET) unit_test
 	find . -name '*~' -delete
 
-.PHONY: clean default
+uint_test: clean
+unit_test: CPPFLAGS += -D ENABLE_UNIT_TEST
+unit_test: CXXFLAGS += -Wno-weak-vtables -Wno-missing-variable-declarations -Wno-exit-time-destructors -Wno-global-constructors
+unit_test: $(OBJECTS)
+	$(CXX) $^ -o $@
+	./unit_test
+
+test: $(TARGET)
+	pytest -v
+
+.PHONY: clean default unit_test test
 
 ifeq ($(findstring $(MAKECMDGOALS),clean),)
 -include $(DEPENDS)

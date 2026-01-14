@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <vector>
 #include <algorithm>
+#include <cstring>
 
 /// SHA-512 implementation according to FIPS PUB 180-4.
 /// https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf

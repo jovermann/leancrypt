@@ -11,6 +11,7 @@
 #include <vector>
 #include <algorithm>
 #include <bit>
+#include <cstring>
 
 /// MD5 implementation according to RFC1321.
 /// https://datatracker.ietf.org/doc/html/rfc1321

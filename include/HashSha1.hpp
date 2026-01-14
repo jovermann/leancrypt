@@ -11,6 +11,7 @@
 #include <vector>
 #include <algorithm>
 #include <bit>
+#include <cstring>
 
 /// SHA-1 implementation according to FIPS PUB 180-4.
 /// https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf
