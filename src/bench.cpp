@@ -152,7 +152,7 @@ int main(int argc, const char *argv[])
                                            "Add --test and/or --benchmark to run only the tests and or benchmarks, respectively.\n"
                                            "\n",
         "\n"
-        "$programName version $version *** Copyright (c) 2024 Johannes Overmann *** https://github.com/jovermann/leancrypt",
+        "$programName version $version ($compileDate) *** Copyright (c) 2024 Johannes Overmann *** https://github.com/jovermann/leancrypt",
         "0.0.2");
 
     cl.addHeader("\nOptions:\n");
