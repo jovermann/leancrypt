@@ -35,7 +35,7 @@ DEPENDS := $(SOURCES:%.cpp=$(BUILDDIR)/%.d)
 UNIT_TEST_OBJECTS = $(SOURCES:%.cpp=$(UNIT_TEST_BUILDDIR)/%.o)
 UNIT_TEST_DEPENDS := $(SOURCES:%.cpp=$(UNIT_TEST_BUILDDIR)/%.d)
 
-TARGET = bench
+TARGET = leancrypt
 default: $(TARGET)
 
 $(TARGET): $(OBJECTS)
@@ -50,7 +50,7 @@ $(BUILDDIR)/%.d: %.cpp Makefile
 	$(CXX) $(CXXSTD) $(CPPFLAGS) -MM -MQ $@ $< -o $@
 
 clean:
-	rm -rf build build-* build-unit-test $(TARGET) unit_test
+	rm -rf build build-* build-unit-test $(TARGET) bench unit_test
 	find . -name '*~' -delete
 
 uint_test: clean

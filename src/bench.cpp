@@ -31,6 +31,11 @@ static const int hashNameLen = 12;
 /// Command line options.
 static unsigned verbose = 0;
 
+/// Set benchmark verbosity.
+void setBenchVerbose(unsigned verbose_)
+{
+    verbose = verbose_;
+}
 
 /// Print error.
 static unsigned checkHash(const std::string& testName, const std::string& expectedHash, const std::string& actualHash, const std::string_view& hashName, const std::string& input)
@@ -136,58 +141,4 @@ void runBenchmarks(size_t size)
     runBench<HashSha256>(size);
     runBench<HashSha1>(size);
     runBench<HashMd5>(size);
-}
-
-/// Main.
-int main(int argc, const char *argv[])
-{
-        // Command line options.
-    ut1::CommandLineParser cl("bench",  "Run benchmarks and tests of the leancrypt crypto functions.\n"
-                                           "\n"
-                                           "Usage: $programName [OPTIONS]\n"
-                                           "\n"
-                                           "Run all tests and benchmarks:\n"
-                                           "> $programName\n"
-                                           "\n"
-                                           "Add --test and/or --benchmark to run only the tests and or benchmarks, respectively.\n"
-                                           "\n",
-        "\n"
-        "$programName version $version ($compileDate) *** Copyright (c) 2024 Johannes Overmann *** https://github.com/jovermann/leancrypt",
-        "0.0.2");
-
-    cl.addHeader("\nOptions:\n");
-    cl.addOption('t', "test", "Run tests (e.g. check functions against reference data).");
-    cl.addOption('b', "benchmark", "Run benchmarks.");
-    cl.addOption('s', "size", "Data size for benchmarks in MBytes.", "SIZE", "256");
-    cl.addOption('v', "verbose", "Increase verbosity. Specify multiple times to be more verbose.");
-
-    // Parse command line options.
-    cl.parse(argc, argv);
-    verbose = cl.getCount("verbose");
-
-    // Run everything by default.
-    if (!(cl("test") || cl("benchmark")))
-    {
-        cl.setOption("test");
-        cl.setOption("benchmark");
-    }
-
-    try
-    {
-        if (cl("test"))
-        {
-            runTests();
-        }
-        if (cl("benchmark"))
-        {
-            runBenchmarks(cl.getUInt("size") << 20);
-        }
-        std::cout << "Done.\n";
-    }
-    catch (const std::exception& e)
-    {
-        cl.error(e.what());
-    }
-
-    return 0;
 }
