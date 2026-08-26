@@ -25,7 +25,9 @@
 #include "MiscUtils.hpp"
 #include "CommandLineParser.hpp"
 #include <exception>
+#include <fnmatch.h>
 #include <iomanip>
+#include <sstream>
 #include <array>
 #include <cassert>
 #include <stdexcept>
@@ -149,6 +151,14 @@ void runBench(size_t size)
     }
 }
 
+/// Return whether a benchmark's printed type name matches an fnmatch pattern.
+template<class CryptoClass>
+bool benchmarkMatches(const std::string& pattern)
+{
+    const std::string name(ut1::typeName<CryptoClass>());
+    return fnmatch(pattern.c_str(), name.c_str(), 0) == 0;
+}
+
 template<class Cipher>
 void runAesBench(size_t size)
 {
@@ -248,21 +258,42 @@ void runTests()
 }
 
 /// Run benchmarks.
-void runBenchmarks(size_t size)
+void runBenchmarks(size_t size, const std::string& pattern)
 {
     // AES is slower than the hashes, so process 1/16 of the requested size.
     const size_t aesSize = size / 16;
-    runAesBench<Aes128>(aesSize);
-    runAesBench<Aes256>(aesSize);
-    runGcmBench<Aes128Gcm>(aesSize);
-    runGcmBench<Aes256Gcm>(aesSize);
-    runBench<HashSha3_128>(size);
-    runBench<HashSha3_224>(size);
-    runBench<HashSha3_256>(size);
-    runBench<HashSha3_384>(size);
-    runBench<HashSha3_512>(size);
-    runBench<HashSha512>(size);
-    runBench<HashSha256>(size);
-    runBench<HashSha1>(size);
-    runBench<HashMd5>(size);
+    bool matched = false;
+    if (benchmarkMatches<Aes128>(pattern)) { runAesBench<Aes128>(aesSize); matched = true; }
+    if (benchmarkMatches<Aes256>(pattern)) { runAesBench<Aes256>(aesSize); matched = true; }
+    if (benchmarkMatches<Aes128Gcm>(pattern)) { runGcmBench<Aes128Gcm>(aesSize); matched = true; }
+    if (benchmarkMatches<Aes256Gcm>(pattern)) { runGcmBench<Aes256Gcm>(aesSize); matched = true; }
+    if (benchmarkMatches<HashSha3_128>(pattern)) { runBench<HashSha3_128>(size); matched = true; }
+    if (benchmarkMatches<HashSha3_224>(pattern)) { runBench<HashSha3_224>(size); matched = true; }
+    if (benchmarkMatches<HashSha3_256>(pattern)) { runBench<HashSha3_256>(size); matched = true; }
+    if (benchmarkMatches<HashSha3_384>(pattern)) { runBench<HashSha3_384>(size); matched = true; }
+    if (benchmarkMatches<HashSha3_512>(pattern)) { runBench<HashSha3_512>(size); matched = true; }
+    if (benchmarkMatches<HashSha512>(pattern)) { runBench<HashSha512>(size); matched = true; }
+    if (benchmarkMatches<HashSha256>(pattern)) { runBench<HashSha256>(size); matched = true; }
+    if (benchmarkMatches<HashSha1>(pattern)) { runBench<HashSha1>(size); matched = true; }
+    if (benchmarkMatches<HashMd5>(pattern)) { runBench<HashMd5>(size); matched = true; }
+
+    if (!matched)
+    {
+        std::ostringstream message;
+        message << "No benchmarks match pattern '" << pattern << "'. Available benchmarks:\n"
+                << "  " << ut1::typeName<Aes128>() << "\n"
+                << "  " << ut1::typeName<Aes256>() << "\n"
+                << "  " << ut1::typeName<Aes128Gcm>() << "\n"
+                << "  " << ut1::typeName<Aes256Gcm>() << "\n"
+                << "  " << ut1::typeName<HashSha3_128>() << "\n"
+                << "  " << ut1::typeName<HashSha3_224>() << "\n"
+                << "  " << ut1::typeName<HashSha3_256>() << "\n"
+                << "  " << ut1::typeName<HashSha3_384>() << "\n"
+                << "  " << ut1::typeName<HashSha3_512>() << "\n"
+                << "  " << ut1::typeName<HashSha512>() << "\n"
+                << "  " << ut1::typeName<HashSha256>() << "\n"
+                << "  " << ut1::typeName<HashSha1>() << "\n"
+                << "  " << ut1::typeName<HashMd5>();
+        throw std::runtime_error(message.str());
+    }
 }

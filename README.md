@@ -37,6 +37,14 @@ Every encryption with a given key must use a unique nonce. A 12-byte nonce is re
 Focus is on readability and portability and not on performance.
 While the performance is not horrible, leancrypt should not be used for data-heavy tasks.
 
+Run all benchmarks, or select benchmark names with an fnmatch pattern:
+
+    ./leancrypt -b
+    ./leancrypt -B 'Aes*'
+    ./leancrypt -B 'Hash*'
+
+`-B` implies `-b`. Quote patterns so that the shell does not expand them before passing them to leancrypt.
+
 Performance on a MacBook M1 Pro:
 
     Aes<128>    : 64.4 MB/s

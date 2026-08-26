@@ -26,7 +26,7 @@
 #include <vector>
 
 void runTests();
-void runBenchmarks(size_t size);
+void runBenchmarks(size_t size, const std::string& pattern);
 void setBenchVerbose(unsigned verbose);
 
 namespace
@@ -166,6 +166,7 @@ int runCli(int argc, const char* argv[])
 
     cl.addHeader("\nOptions:\n");
     cl.addOption('b', "bench", "Run benchmarks.");
+    cl.addOption('B', "bench-filter", "Run benchmarks matching an fnmatch pattern, for example 'Aes*' or 'Hash*'; implies --bench.", "PATTERN", "*");
     cl.addOption('H', "hash", "Hash algorithm to use, or 'list' to list algorithms.", "HASH", "sha256");
     cl.addOption('s', "size", "Data size for hash benchmarks in MBytes; AES uses 1/16 of this size.", "SIZE", "256");
     cl.addOption('t', "test", "Run hash implementation tests.");
@@ -189,9 +190,9 @@ int runCli(int argc, const char* argv[])
             runTests();
             didWork = true;
         }
-        if (cl("bench"))
+        if (cl("bench") || cl.getCount("bench-filter"))
         {
-            runBenchmarks(cl.getUInt("size") << 20);
+            runBenchmarks(cl.getUInt("size") << 20, cl.getStr("bench-filter"));
             didWork = true;
         }
 
