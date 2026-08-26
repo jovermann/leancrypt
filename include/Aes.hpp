@@ -67,10 +67,7 @@ public:
         Block state = input;
         addRoundKey(state, 0);
         for (unsigned round = 1; round < rounds; ++round)
-        {
-            subBytesAndShiftRows(state);
-            mixColumnsAndAddRoundKey(state, round);
-        }
+            encryptRound(state, round);
         subBytesAndShiftRows(state);
         addRoundKey(state, rounds);
         return state;
@@ -206,22 +203,37 @@ private:
                 s[4 * col + row] = t[4 * ((col + 4 - row) & 3U) + row];
     }
 
-    /// Apply MixColumns and then XOR the round key while writing each column.
+    /// Apply MixColumns and the round key to one already substituted column.
+    /// @param s AES state modified in place.
+    /// @param offset First state and round-key byte of the destination column.
+    /// @param a First byte of the substituted and shifted column.
+    /// @param b Second byte of the substituted and shifted column.
+    /// @param c Third byte of the substituted and shifted column.
+    /// @param d Fourth byte of the substituted and shifted column.
+    /// @param round Round-key index in the range [1, rounds - 1].
+    void mixColumnAndAddRoundKey(Block& s, size_t offset, uint8_t a, uint8_t b,
+                                 uint8_t c, uint8_t d, unsigned round) const
+    {
+        const uint8_t all = a ^ b ^ c ^ d;
+        const size_t key = round * blockSize + offset;
+        s[offset] = a ^ all ^ xtime(a ^ b) ^ roundKeys[key];
+        s[offset + 1] = b ^ all ^ xtime(b ^ c) ^ roundKeys[key + 1];
+        s[offset + 2] = c ^ all ^ xtime(c ^ d) ^ roundKeys[key + 2];
+        s[offset + 3] = d ^ all ^ xtime(d ^ a) ^ roundKeys[key + 3];
+    }
+
+    /// Apply one complete non-final AES encryption round.
     /// @param s AES state modified in place.
     /// @param round Round-key index in the range [1, rounds - 1].
-    void mixColumnsAndAddRoundKey(Block& s, unsigned round) const
+    /// SubBytes and ShiftRows feed each column directly into MixColumns so no
+    /// intermediate transformed state has to be stored and read again.
+    void encryptRound(Block& s, unsigned round) const
     {
-        for (size_t col = 0; col < 4; ++col)
-        {
-            const size_t i = 4 * col;
-            const uint8_t a = s[i], b = s[i + 1], c = s[i + 2], d = s[i + 3];
-            const uint8_t all = a ^ b ^ c ^ d;
-            const size_t key = round * blockSize + i;
-            s[i] = a ^ all ^ xtime(a ^ b) ^ roundKeys[key];
-            s[i + 1] = b ^ all ^ xtime(b ^ c) ^ roundKeys[key + 1];
-            s[i + 2] = c ^ all ^ xtime(c ^ d) ^ roundKeys[key + 2];
-            s[i + 3] = d ^ all ^ xtime(d ^ a) ^ roundKeys[key + 3];
-        }
+        const Block t = s;
+        mixColumnAndAddRoundKey(s, 0, sbox[t[0]], sbox[t[5]], sbox[t[10]], sbox[t[15]], round);
+        mixColumnAndAddRoundKey(s, 4, sbox[t[4]], sbox[t[9]], sbox[t[14]], sbox[t[3]], round);
+        mixColumnAndAddRoundKey(s, 8, sbox[t[8]], sbox[t[13]], sbox[t[2]], sbox[t[7]], round);
+        mixColumnAndAddRoundKey(s, 12, sbox[t[12]], sbox[t[1]], sbox[t[6]], sbox[t[11]], round);
     }
 
     /// Apply the inverse AES linear transformation to each column.
