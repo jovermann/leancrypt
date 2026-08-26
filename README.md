@@ -11,7 +11,7 @@ Encryption:
 * AES-128 and AES-256 block encryption and decryption (FIPS 197)
 * AES-128-GCM and AES-256-GCM authenticated encryption (NIST SP 800-38D)
 
-The AES implementation is very simple and 100% portable C++. It deliberately avoids platform-specific hardware acceleration and therefore has rather low performance compared with optimized AES libraries. Its focus is readability and portability.
+The AES implementation is very simple and 100% portable C++. It deliberately avoids platform-specific hardware acceleration and therefore has rather low performance compared with optimized AES libraries. Its focus is readability and portability. It uses key-dependent table lookups and is not side-channel hardened.
 
 `Aes.hpp` provides the raw 16-byte block cipher. For application data, prefer `AesGcm.hpp`, use a unique nonce for every encryption with a given key, and transmit its authentication tag with the ciphertext. Decryption authenticates before returning plaintext.
 
@@ -47,10 +47,10 @@ Run all benchmarks, or select benchmark names with an fnmatch pattern:
 
 Performance on a MacBook M1 Pro:
 
-    Aes<128>    : 122.5 MB/s
-    Aes<256>    : 89.5 MB/s
-    AesGcm<128> : 59.9 MB/s
-    AesGcm<256> : 51.1 MB/s
+    Aes<128>    : 324.9 MB/s
+    Aes<256>    : 243.7 MB/s
+    AesGcm<128> : 84.5 MB/s
+    AesGcm<256> : 78.1 MB/s
     HashSha3_128: 691.2 MB/s (268435456 bytes in 0.370s)
     HashSha3_224: 599.2 MB/s (268435456 bytes in 0.427s)
     HashSha3_256: 561.8 MB/s (268435456 bytes in 0.456s)

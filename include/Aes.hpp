@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -19,6 +20,7 @@
 /// This is a very simple, 100% portable C++ implementation intended for
 /// readability. It uses no platform-specific acceleration and consequently
 /// has rather low performance compared with optimized AES implementations.
+/// It uses key-dependent table lookups and is not side-channel hardened.
 /// The object expands and retains its key and can then encrypt or decrypt any
 /// number of independent 16-byte blocks. This class does not provide a block
 /// mode, padding, authentication, or nonce handling; use AesGcm for messages.
@@ -64,13 +66,30 @@ public:
     /// @return The corresponding 16-byte ciphertext block.
     Block encryptBlock(const Block& input) const
     {
-        Block state = input;
-        addRoundKey(state, 0);
+        uint32_t s0 = get32(input.data()) ^ encryptionRoundKeys[0];
+        uint32_t s1 = get32(input.data() + 4) ^ encryptionRoundKeys[1];
+        uint32_t s2 = get32(input.data() + 8) ^ encryptionRoundKeys[2];
+        uint32_t s3 = get32(input.data() + 12) ^ encryptionRoundKeys[3];
         for (unsigned round = 1; round < rounds; ++round)
-            encryptRound(state, round);
-        subBytesAndShiftRows(state);
-        addRoundKey(state, rounds);
-        return state;
+        {
+            const size_t key = 4 * round;
+            const uint32_t t0 = encryptColumn(s0, s1, s2, s3) ^ encryptionRoundKeys[key];
+            const uint32_t t1 = encryptColumn(s1, s2, s3, s0) ^ encryptionRoundKeys[key + 1];
+            const uint32_t t2 = encryptColumn(s2, s3, s0, s1) ^ encryptionRoundKeys[key + 2];
+            const uint32_t t3 = encryptColumn(s3, s0, s1, s2) ^ encryptionRoundKeys[key + 3];
+            s0 = t0;
+            s1 = t1;
+            s2 = t2;
+            s3 = t3;
+        }
+
+        const size_t key = 4 * rounds;
+        Block result{};
+        put32(result, 0, finalEncryptColumn(s0, s1, s2, s3) ^ encryptionRoundKeys[key]);
+        put32(result, 4, finalEncryptColumn(s1, s2, s3, s0) ^ encryptionRoundKeys[key + 1]);
+        put32(result, 8, finalEncryptColumn(s2, s3, s0, s1) ^ encryptionRoundKeys[key + 2]);
+        put32(result, 12, finalEncryptColumn(s3, s0, s1, s2) ^ encryptionRoundKeys[key + 3]);
+        return result;
     }
 
     /// Decrypt one block using the expanded key.
@@ -97,7 +116,7 @@ private:
     /// Multiply one byte by x in the AES finite field GF(2^8).
     /// @param value Polynomial coefficient to multiply by x.
     /// @return The field product reduced by the AES polynomial x^8+x^4+x^3+x+1.
-    static uint8_t xtime(uint8_t value)
+    static constexpr uint8_t xtime(uint8_t value)
     {
         return static_cast<uint8_t>((value << 1U) ^ ((value >> 7U) * 0x1bU));
     }
@@ -120,6 +139,57 @@ private:
             b >>= 1U;
         }
         return result;
+    }
+
+    /// Load four bytes as a portable big-endian 32-bit integer.
+    /// @param bytes Pointer to at least four source bytes.
+    /// @return The decoded unsigned integer.
+    static uint32_t get32(const uint8_t *bytes)
+    {
+        return (static_cast<uint32_t>(bytes[0]) << 24U)
+             | (static_cast<uint32_t>(bytes[1]) << 16U)
+             | (static_cast<uint32_t>(bytes[2]) << 8U)
+             | static_cast<uint32_t>(bytes[3]);
+    }
+
+    /// Store a 32-bit integer in big-endian byte order.
+    /// @param block Destination AES block.
+    /// @param offset First destination byte; callers use 0, 4, 8, or 12.
+    /// @param value Integer to store.
+    static void put32(Block& block, size_t offset, uint32_t value)
+    {
+        block[offset] = static_cast<uint8_t>(value >> 24U);
+        block[offset + 1] = static_cast<uint8_t>(value >> 16U);
+        block[offset + 2] = static_cast<uint8_t>(value >> 8U);
+        block[offset + 3] = static_cast<uint8_t>(value);
+    }
+
+    /// Apply SubBytes, ShiftRows, and MixColumns to one state column.
+    /// @param a State word providing the first row byte.
+    /// @param b State word providing the second row byte.
+    /// @param c State word providing the third row byte.
+    /// @param d State word providing the fourth row byte.
+    /// @return One transformed column before round-key addition.
+    static uint32_t encryptColumn(uint32_t a, uint32_t b, uint32_t c, uint32_t d)
+    {
+        return encryptionTables[0][a >> 24U]
+             ^ encryptionTables[1][(b >> 16U) & 0xffU]
+             ^ encryptionTables[2][(c >> 8U) & 0xffU]
+             ^ encryptionTables[3][d & 0xffU];
+    }
+
+    /// Apply the final SubBytes and ShiftRows transformations to one column.
+    /// @param a State word providing the first row byte.
+    /// @param b State word providing the second row byte.
+    /// @param c State word providing the third row byte.
+    /// @param d State word providing the fourth row byte.
+    /// @return One final transformed column before round-key addition.
+    static uint32_t finalEncryptColumn(uint32_t a, uint32_t b, uint32_t c, uint32_t d)
+    {
+        return (static_cast<uint32_t>(sbox[a >> 24U]) << 24U)
+             | (static_cast<uint32_t>(sbox[(b >> 16U) & 0xffU]) << 16U)
+             | (static_cast<uint32_t>(sbox[(c >> 8U) & 0xffU]) << 8U)
+             | static_cast<uint32_t>(sbox[d & 0xffU]);
     }
 
     /// Expand the original cipher key into one key for every AES round.
@@ -155,6 +225,8 @@ private:
                 ++generated;
             }
         }
+        for (size_t i = 0; i < encryptionRoundKeys.size(); ++i)
+            encryptionRoundKeys[i] = get32(roundKeys.data() + 4 * i);
     }
 
     /// XOR one expanded round key into the cipher state.
@@ -164,29 +236,6 @@ private:
     {
         for (size_t i = 0; i < blockSize; ++i)
             state[i] ^= roundKeys[round * blockSize + i];
-    }
-
-    /// Apply SubBytes and ShiftRows together using one unrolled state pass.
-    /// @param s Column-major AES state modified in place.
-    static void subBytesAndShiftRows(Block& s)
-    {
-        const Block t = s;
-        s[0] = sbox[t[0]];
-        s[1] = sbox[t[5]];
-        s[2] = sbox[t[10]];
-        s[3] = sbox[t[15]];
-        s[4] = sbox[t[4]];
-        s[5] = sbox[t[9]];
-        s[6] = sbox[t[14]];
-        s[7] = sbox[t[3]];
-        s[8] = sbox[t[8]];
-        s[9] = sbox[t[13]];
-        s[10] = sbox[t[2]];
-        s[11] = sbox[t[7]];
-        s[12] = sbox[t[12]];
-        s[13] = sbox[t[1]];
-        s[14] = sbox[t[6]];
-        s[15] = sbox[t[11]];
     }
 
     /// Apply the inverse AES S-box independently to every byte.
@@ -201,39 +250,6 @@ private:
         for (size_t row = 0; row < 4; ++row)
             for (size_t col = 0; col < 4; ++col)
                 s[4 * col + row] = t[4 * ((col + 4 - row) & 3U) + row];
-    }
-
-    /// Apply MixColumns and the round key to one already substituted column.
-    /// @param s AES state modified in place.
-    /// @param offset First state and round-key byte of the destination column.
-    /// @param a First byte of the substituted and shifted column.
-    /// @param b Second byte of the substituted and shifted column.
-    /// @param c Third byte of the substituted and shifted column.
-    /// @param d Fourth byte of the substituted and shifted column.
-    /// @param round Round-key index in the range [1, rounds - 1].
-    void mixColumnAndAddRoundKey(Block& s, size_t offset, uint8_t a, uint8_t b,
-                                 uint8_t c, uint8_t d, unsigned round) const
-    {
-        const uint8_t all = a ^ b ^ c ^ d;
-        const size_t key = round * blockSize + offset;
-        s[offset] = a ^ all ^ xtime(a ^ b) ^ roundKeys[key];
-        s[offset + 1] = b ^ all ^ xtime(b ^ c) ^ roundKeys[key + 1];
-        s[offset + 2] = c ^ all ^ xtime(c ^ d) ^ roundKeys[key + 2];
-        s[offset + 3] = d ^ all ^ xtime(d ^ a) ^ roundKeys[key + 3];
-    }
-
-    /// Apply one complete non-final AES encryption round.
-    /// @param s AES state modified in place.
-    /// @param round Round-key index in the range [1, rounds - 1].
-    /// SubBytes and ShiftRows feed each column directly into MixColumns so no
-    /// intermediate transformed state has to be stored and read again.
-    void encryptRound(Block& s, unsigned round) const
-    {
-        const Block t = s;
-        mixColumnAndAddRoundKey(s, 0, sbox[t[0]], sbox[t[5]], sbox[t[10]], sbox[t[15]], round);
-        mixColumnAndAddRoundKey(s, 4, sbox[t[4]], sbox[t[9]], sbox[t[14]], sbox[t[3]], round);
-        mixColumnAndAddRoundKey(s, 8, sbox[t[8]], sbox[t[13]], sbox[t[2]], sbox[t[7]], round);
-        mixColumnAndAddRoundKey(s, 12, sbox[t[12]], sbox[t[1]], sbox[t[6]], sbox[t[11]], round);
     }
 
     /// Apply the inverse AES linear transformation to each column.
@@ -270,6 +286,26 @@ private:
         0xe1,0xf8,0x98,0x11,0x69,0xd9,0x8e,0x94,0x9b,0x1e,0x87,0xe9,0xce,0x55,0x28,0xdf,
         0x8c,0xa1,0x89,0x0d,0xbf,0xe6,0x42,0x68,0x41,0x99,0x2d,0x0f,0xb0,0x54,0xbb,0x16};
 
+    /// Combined SubBytes and MixColumns tables for the four column rows.
+    static constexpr std::array<std::array<uint32_t, 256>, 4> encryptionTables = [] {
+        std::array<std::array<uint32_t, 256>, 4> tables{};
+        for (size_t i = 0; i < tables[0].size(); ++i)
+        {
+            const uint8_t substituted = sbox[i];
+            const uint8_t doubled = xtime(substituted);
+            const uint8_t tripled = doubled ^ substituted;
+            const uint32_t value = (static_cast<uint32_t>(doubled) << 24U)
+                                 | (static_cast<uint32_t>(substituted) << 16U)
+                                 | (static_cast<uint32_t>(substituted) << 8U)
+                                 | tripled;
+            tables[0][i] = value;
+            tables[1][i] = std::rotr(value, 8);
+            tables[2][i] = std::rotr(value, 16);
+            tables[3][i] = std::rotr(value, 24);
+        }
+        return tables;
+    }();
+
     /// Inverse byte-substitution table used during decryption.
     static constexpr std::array<uint8_t, 256> invSbox = {
         0x52,0x09,0x6a,0xd5,0x30,0x36,0xa5,0x38,0xbf,0x40,0xa3,0x9e,0x81,0xf3,0xd7,0xfb,
@@ -294,6 +330,9 @@ private:
 
     /// Expanded key bytes, containing the initial key and every round key.
     std::array<uint8_t, blockSize * (rounds + 1)> roundKeys{};
+
+    /// Expanded encryption round keys packed as portable big-endian words.
+    std::array<uint32_t, 4 * (rounds + 1)> encryptionRoundKeys{};
 };
 
 /// Convenient name for AES with a 128-bit key.
