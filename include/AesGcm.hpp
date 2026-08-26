@@ -131,25 +131,56 @@ private:
             a[i] ^= b[i];
     }
 
+    /// Load eight bytes as a portable big-endian 64-bit integer.
+    /// @param block Source block.
+    /// @param offset First source byte; callers use 0 or 8.
+    /// @return The decoded unsigned integer.
+    static uint64_t get64(const Tag& block, size_t offset)
+    {
+        uint64_t value = 0;
+        for (size_t i = 0; i < 8; ++i)
+            value = (value << 8U) | block[offset + i];
+        return value;
+    }
+
+    /// Accumulate one 64-bit half of a field operand into a GHASH product.
+    /// @param x Operand bits processed from most to least significant.
+    /// @param zHigh Most-significant half of the product accumulator.
+    /// @param zLow Least-significant half of the product accumulator.
+    /// @param vHigh Most-significant half of the shifted second operand.
+    /// @param vLow Least-significant half of the shifted second operand.
+    static void multiplyHalf(uint64_t x, uint64_t& zHigh, uint64_t& zLow,
+                             uint64_t& vHigh, uint64_t& vLow)
+    {
+        for (uint64_t bit = uint64_t{1} << 63U; bit != 0; bit >>= 1U)
+        {
+            const uint64_t selected = 0U - static_cast<uint64_t>((x & bit) != 0);
+            zHigh ^= vHigh & selected;
+            zLow ^= vLow & selected;
+
+            const uint64_t reduction = 0U - (vLow & 1U);
+            vLow = (vLow >> 1U) | (vHigh << 63U);
+            vHigh = (vHigh >> 1U) ^ (0xe100000000000000ULL & reduction);
+        }
+    }
+
     /// Multiply two 128-bit values in GCM's binary field GF(2^128).
     /// @param x First field element in big-endian bit order.
     /// @param y Second field element in big-endian bit order.
     /// @return Field product reduced by GCM's defining polynomial.
     static Tag multiply(const Tag& x, const Tag& y)
     {
-        Tag z{};
-        Tag v = y;
-        for (size_t bit = 0; bit < 128; ++bit)
-        {
-            if ((x[bit / 8] & (0x80U >> (bit & 7U))) != 0)
-                xorBlock(z, v);
-            const bool lsb = (v[15] & 1U) != 0;
-            for (size_t i = 16; i-- > 0;)
-                v[i] = static_cast<uint8_t>((v[i] >> 1U) | (i == 0 ? 0 : (v[i - 1] << 7U)));
-            if (lsb)
-                v[0] ^= 0xe1U;
-        }
-        return z;
+        uint64_t zHigh = 0;
+        uint64_t zLow = 0;
+        uint64_t vHigh = get64(y, 0);
+        uint64_t vLow = get64(y, 8);
+        multiplyHalf(get64(x, 0), zHigh, zLow, vHigh, vLow);
+        multiplyHalf(get64(x, 8), zHigh, zLow, vHigh, vLow);
+
+        Tag result{};
+        put64(result, 0, zHigh);
+        put64(result, 8, zLow);
+        return result;
     }
 
     /// Store a 64-bit integer in big-endian byte order inside a tag-sized block.

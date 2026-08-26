@@ -49,8 +49,8 @@ Performance on a MacBook M1 Pro:
 
     Aes<128>    : 113.2 MB/s
     Aes<256>    : 84.1 MB/s
-    AesGcm<128> : 12.3 MB/s
-    AesGcm<256> : 11.8 MB/s
+    AesGcm<128> : 58.5 MB/s
+    AesGcm<256> : 49.6 MB/s
     HashSha3_128: 691.2 MB/s (268435456 bytes in 0.370s)
     HashSha3_224: 599.2 MB/s (268435456 bytes in 0.427s)
     HashSha3_256: 561.8 MB/s (268435456 bytes in 0.456s)
