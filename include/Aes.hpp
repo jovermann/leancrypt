@@ -68,13 +68,10 @@ public:
         addRoundKey(state, 0);
         for (unsigned round = 1; round < rounds; ++round)
         {
-            subBytes(state);
-            shiftRows(state);
-            mixColumns(state);
-            addRoundKey(state, round);
+            subBytesAndShiftRows(state);
+            mixColumnsAndAddRoundKey(state, round);
         }
-        subBytes(state);
-        shiftRows(state);
+        subBytesAndShiftRows(state);
         addRoundKey(state, rounds);
         return state;
     }
@@ -100,6 +97,14 @@ public:
     }
 
 private:
+    /// Multiply one byte by x in the AES finite field GF(2^8).
+    /// @param value Polynomial coefficient to multiply by x.
+    /// @return The field product reduced by the AES polynomial x^8+x^4+x^3+x+1.
+    static uint8_t xtime(uint8_t value)
+    {
+        return static_cast<uint8_t>((value << 1U) ^ ((value >> 7U) * 0x1bU));
+    }
+
     /// Multiply two bytes in the AES finite field GF(2^8).
     /// @param a First polynomial coefficient.
     /// @param b Second polynomial coefficient.
@@ -164,23 +169,32 @@ private:
             state[i] ^= roundKeys[round * blockSize + i];
     }
 
-    /// Apply the forward AES S-box independently to every byte.
-    /// @param state AES state modified in place.
-    static void subBytes(Block& state) { for (uint8_t& byte: state) byte = sbox[byte]; }
+    /// Apply SubBytes and ShiftRows together using one unrolled state pass.
+    /// @param s Column-major AES state modified in place.
+    static void subBytesAndShiftRows(Block& s)
+    {
+        const Block t = s;
+        s[0] = sbox[t[0]];
+        s[1] = sbox[t[5]];
+        s[2] = sbox[t[10]];
+        s[3] = sbox[t[15]];
+        s[4] = sbox[t[4]];
+        s[5] = sbox[t[9]];
+        s[6] = sbox[t[14]];
+        s[7] = sbox[t[3]];
+        s[8] = sbox[t[8]];
+        s[9] = sbox[t[13]];
+        s[10] = sbox[t[2]];
+        s[11] = sbox[t[7]];
+        s[12] = sbox[t[12]];
+        s[13] = sbox[t[1]];
+        s[14] = sbox[t[6]];
+        s[15] = sbox[t[11]];
+    }
 
     /// Apply the inverse AES S-box independently to every byte.
     /// @param state AES state modified in place.
     static void invSubBytes(Block& state) { for (uint8_t& byte: state) byte = invSbox[byte]; }
-
-    /// Rotate each row of the column-major AES state to the left by its row index.
-    /// @param s AES state modified in place.
-    static void shiftRows(Block& s)
-    {
-        const Block t = s;
-        for (size_t row = 0; row < 4; ++row)
-            for (size_t col = 0; col < 4; ++col)
-                s[4 * col + row] = t[4 * ((col + row) & 3U) + row];
-    }
 
     /// Undo shiftRows by rotating each row of the state to the right.
     /// @param s AES state modified in place.
@@ -192,18 +206,21 @@ private:
                 s[4 * col + row] = t[4 * ((col + 4 - row) & 3U) + row];
     }
 
-    /// Apply the forward AES linear transformation to each column.
+    /// Apply MixColumns and then XOR the round key while writing each column.
     /// @param s AES state modified in place.
-    static void mixColumns(Block& s)
+    /// @param round Round-key index in the range [1, rounds - 1].
+    void mixColumnsAndAddRoundKey(Block& s, unsigned round) const
     {
         for (size_t col = 0; col < 4; ++col)
         {
             const size_t i = 4 * col;
             const uint8_t a = s[i], b = s[i + 1], c = s[i + 2], d = s[i + 3];
-            s[i] = multiply(a, 2) ^ multiply(b, 3) ^ c ^ d;
-            s[i + 1] = a ^ multiply(b, 2) ^ multiply(c, 3) ^ d;
-            s[i + 2] = a ^ b ^ multiply(c, 2) ^ multiply(d, 3);
-            s[i + 3] = multiply(a, 3) ^ b ^ c ^ multiply(d, 2);
+            const uint8_t all = a ^ b ^ c ^ d;
+            const size_t key = round * blockSize + i;
+            s[i] = a ^ all ^ xtime(a ^ b) ^ roundKeys[key];
+            s[i + 1] = b ^ all ^ xtime(b ^ c) ^ roundKeys[key + 1];
+            s[i + 2] = c ^ all ^ xtime(c ^ d) ^ roundKeys[key + 2];
+            s[i + 3] = d ^ all ^ xtime(d ^ a) ^ roundKeys[key + 3];
         }
     }
 
