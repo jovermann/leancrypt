@@ -20,6 +20,7 @@
 /// This is a very simple, 100% portable C++ implementation intended for
 /// readability. It uses no platform-specific acceleration and consequently
 /// has rather low performance compared with optimized AES-GCM implementations.
+/// It uses key-dependent lookup tables and is not side-channel hardened.
 /// Each instance retains an expanded AES key. A nonce must never be reused with
 /// the same key. A 12-byte nonce is recommended and takes GCM's fast path.
 template<size_t KeyBits>
@@ -45,14 +46,14 @@ public:
         Tag tag;
     };
 
-    /// Construct an AES-GCM context and expand @p key.
+    /// Construct a context, expand @p key, and build its GHASH lookup table.
     /// @param key Exactly Cipher::keySize bytes of key material.
-    explicit AesGcm(const Key& key): aes(key) {}
+    explicit AesGcm(const Key& key): aes(key) { initializeHashTable(); }
 
-    /// Construct an AES-GCM context from dynamically sized key material.
+    /// Construct a context from dynamic key material and build its GHASH table.
     /// @param key Key material, which must contain exactly Cipher::keySize bytes.
     /// @throws std::invalid_argument if @p key has the wrong size.
-    explicit AesGcm(std::span<const uint8_t> key): aes(key) {}
+    explicit AesGcm(std::span<const uint8_t> key): aes(key) { initializeHashTable(); }
 
     /// Encrypt and authenticate a complete message.
     /// @param nonce Unique nonce for this key; 12 bytes is strongly recommended.
@@ -93,6 +94,16 @@ public:
     }
 
 private:
+    /// Two portable words representing one element of GHASH's 128-bit field.
+    struct FieldValue
+    {
+        /// Most-significant 64 bits in GCM's big-endian bit order.
+        uint64_t high{};
+
+        /// Least-significant 64 bits in GCM's big-endian bit order.
+        uint64_t low{};
+    };
+
     /// Increment the least-significant 32 bits of a GCM counter block.
     /// @param counter Counter block modified in place using big-endian arithmetic.
     static void incrementCounter(Tag& counter)
@@ -132,14 +143,13 @@ private:
     }
 
     /// Load eight bytes as a portable big-endian 64-bit integer.
-    /// @param block Source block.
-    /// @param offset First source byte; callers use 0 or 8.
+    /// @param bytes Pointer to at least eight source bytes.
     /// @return The decoded unsigned integer.
-    static uint64_t get64(const Tag& block, size_t offset)
+    static uint64_t get64(const uint8_t *bytes)
     {
         uint64_t value = 0;
         for (size_t i = 0; i < 8; ++i)
-            value = (value << 8U) | block[offset + i];
+            value = (value << 8U) | bytes[i];
         return value;
     }
 
@@ -168,19 +178,55 @@ private:
     /// @param x First field element in big-endian bit order.
     /// @param y Second field element in big-endian bit order.
     /// @return Field product reduced by GCM's defining polynomial.
-    static Tag multiply(const Tag& x, const Tag& y)
+    static Tag multiplyReference(const Tag& x, const Tag& y)
     {
         uint64_t zHigh = 0;
         uint64_t zLow = 0;
-        uint64_t vHigh = get64(y, 0);
-        uint64_t vLow = get64(y, 8);
-        multiplyHalf(get64(x, 0), zHigh, zLow, vHigh, vLow);
-        multiplyHalf(get64(x, 8), zHigh, zLow, vHigh, vLow);
+        uint64_t vHigh = get64(y.data());
+        uint64_t vLow = get64(y.data() + 8);
+        multiplyHalf(get64(x.data()), zHigh, zLow, vHigh, vLow);
+        multiplyHalf(get64(x.data() + 8), zHigh, zLow, vHigh, vLow);
 
         Tag result{};
         put64(result, 0, zHigh);
         put64(result, 8, zLow);
         return result;
+    }
+
+    /// Build the per-key nibble contribution table for fast GHASH multiplication.
+    /// The bit-serial reference multiplication is used only during construction.
+    void initializeHashTable()
+    {
+        const Tag h = aes.encryptBlock(Tag{});
+        for (size_t position = 0; position < hashTable.size(); ++position)
+        {
+            for (size_t value = 0; value < hashTable[position].size(); ++value)
+            {
+                Tag operand{};
+                const size_t byte = position / 2;
+                operand[byte] = static_cast<uint8_t>(value << ((position & 1U) == 0 ? 4U : 0U));
+                const Tag product = multiplyReference(operand, h);
+                hashTable[position][value] = {get64(product.data()), get64(product.data() + 8)};
+            }
+        }
+    }
+
+    /// Multiply a word-based value by this context's fixed GHASH subkey.
+    /// @param x Field element in big-endian bit order.
+    /// @return Product of @p x and the AES-derived hash subkey.
+    FieldValue multiply(const FieldValue& x) const
+    {
+        FieldValue product{};
+        for (size_t byte = 0; byte < 16; ++byte)
+        {
+            const unsigned shift = static_cast<unsigned>(56 - 8 * (byte & 7U));
+            const uint8_t value = static_cast<uint8_t>((byte < 8 ? x.high : x.low) >> shift);
+            const FieldValue& high = hashTable[2 * byte][value >> 4U];
+            const FieldValue& low = hashTable[2 * byte + 1][value & 0x0fU];
+            product.high ^= high.high ^ low.high;
+            product.low ^= high.low ^ low.low;
+        }
+        return product;
     }
 
     /// Store a 64-bit integer in big-endian byte order inside a tag-sized block.
@@ -194,18 +240,30 @@ private:
     }
 
     /// Fold a byte sequence into an existing GHASH accumulator.
-    /// @param state GHASH accumulator updated in place.
-    /// @param h Hash subkey produced by encrypting the all-zero AES block.
+    /// @param state Word-based GHASH accumulator updated in place.
     /// @param bytes Bytes to hash, padded with zeros to a block boundary.
-    static void hashBytes(Tag& state, const Tag& h, std::span<const uint8_t> bytes)
+    void hashBytes(FieldValue& state, std::span<const uint8_t> bytes) const
     {
-        for (size_t offset = 0; offset < bytes.size(); offset += 16)
+        size_t offset = 0;
+        for (; bytes.size() - offset >= 16; offset += 16)
         {
-            Tag block{};
+            state.high ^= get64(bytes.data() + offset);
+            state.low ^= get64(bytes.data() + offset + 8);
+            state = multiply(state);
+        }
+        if (offset < bytes.size())
+        {
             const size_t count = std::min<size_t>(16, bytes.size() - offset);
-            std::copy_n(bytes.begin() + static_cast<ptrdiff_t>(offset), count, block.begin());
-            xorBlock(state, block);
-            state = multiply(state, h);
+            for (size_t i = 0; i < count; ++i)
+            {
+                const unsigned shift = static_cast<unsigned>(56 - 8 * (i & 7U));
+                const uint64_t value = static_cast<uint64_t>(bytes[offset + i]) << shift;
+                if (i < 8)
+                    state.high ^= value;
+                else
+                    state.low ^= value;
+            }
+            state = multiply(state);
         }
     }
 
@@ -215,15 +273,16 @@ private:
     /// @return The 128-bit GHASH result.
     Tag ghash(std::span<const uint8_t> associatedData, std::span<const uint8_t> ciphertext) const
     {
-        const Tag h = aes.encryptBlock(Tag{});
-        Tag state{};
-        hashBytes(state, h, associatedData);
-        hashBytes(state, h, ciphertext);
-        Tag lengths{};
-        put64(lengths, 0, static_cast<uint64_t>(associatedData.size()) * 8U);
-        put64(lengths, 8, static_cast<uint64_t>(ciphertext.size()) * 8U);
-        xorBlock(state, lengths);
-        return multiply(state, h);
+        FieldValue state{};
+        hashBytes(state, associatedData);
+        hashBytes(state, ciphertext);
+        state.high ^= static_cast<uint64_t>(associatedData.size()) * 8U;
+        state.low ^= static_cast<uint64_t>(ciphertext.size()) * 8U;
+        state = multiply(state);
+        Tag result{};
+        put64(result, 0, state.high);
+        put64(result, 8, state.low);
+        return result;
     }
 
     /// Derive GCM's initial counter block from a nonce.
@@ -258,6 +317,10 @@ private:
 
     /// Expanded AES cipher key used for counter encryption and GHASH setup.
     Cipher aes;
+
+    /// Contributions of every nibble value at each of 32 input positions.
+    /// This 8 KiB table is initialized from the per-key GHASH subkey.
+    std::array<std::array<FieldValue, 16>, 32> hashTable{};
 };
 
 /// Convenient name for AES-128-GCM.
