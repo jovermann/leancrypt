@@ -60,12 +60,25 @@ public:
     /// @param plaintext Message bytes to encrypt. Empty messages are supported.
     /// @param associatedData Unencrypted bytes to authenticate, such as headers.
     /// @return Ciphertext and a full 128-bit authentication tag.
+    /// Ciphertext is folded into GHASH as it is produced to avoid a second pass.
     Encrypted encrypt(std::span<const uint8_t> nonce, std::span<const uint8_t> plaintext,
                       std::span<const uint8_t> associatedData = {}) const
     {
         const Tag j0 = initialCounter(nonce);
-        Encrypted result{crypt(plaintext, j0), {}};
-        result.tag = authenticationTag(j0, associatedData, result.ciphertext);
+        Encrypted result{std::vector<uint8_t>(plaintext.size()), {}};
+        FieldValue hashState{};
+        hashBytes(hashState, associatedData);
+        Tag counter = j0;
+        for (size_t offset = 0; offset < plaintext.size(); offset += 16)
+        {
+            incrementCounter(counter);
+            const Tag stream = aes.encryptBlock(counter);
+            const size_t count = std::min<size_t>(16, plaintext.size() - offset);
+            for (size_t i = 0; i < count; ++i)
+                result.ciphertext[offset + i] = plaintext[offset + i] ^ stream[i];
+            hashBlock(hashState, result.ciphertext.data() + offset, count);
+        }
+        result.tag = finishAuthenticationTag(j0, hashState, associatedData.size(), result.ciphertext.size());
         return result;
     }
 
@@ -239,6 +252,32 @@ private:
             block[offset + 7 - i] = static_cast<uint8_t>(value >> (8U * i));
     }
 
+    /// Fold one full or partial block into a GHASH accumulator.
+    /// @param state Word-based GHASH accumulator updated in place.
+    /// @param bytes Pointer to @p count input bytes.
+    /// @param count Number of bytes in the range [1, 16]; missing bytes are zero.
+    void hashBlock(FieldValue& state, const uint8_t *bytes, size_t count) const
+    {
+        if (count == 16)
+        {
+            state.high ^= get64(bytes);
+            state.low ^= get64(bytes + 8);
+        }
+        else
+        {
+            for (size_t i = 0; i < count; ++i)
+            {
+                const unsigned shift = static_cast<unsigned>(56 - 8 * (i & 7U));
+                const uint64_t value = static_cast<uint64_t>(bytes[i]) << shift;
+                if (i < 8)
+                    state.high ^= value;
+                else
+                    state.low ^= value;
+            }
+        }
+        state = multiply(state);
+    }
+
     /// Fold a byte sequence into an existing GHASH accumulator.
     /// @param state Word-based GHASH accumulator updated in place.
     /// @param bytes Bytes to hash, padded with zeros to a block boundary.
@@ -246,25 +285,9 @@ private:
     {
         size_t offset = 0;
         for (; bytes.size() - offset >= 16; offset += 16)
-        {
-            state.high ^= get64(bytes.data() + offset);
-            state.low ^= get64(bytes.data() + offset + 8);
-            state = multiply(state);
-        }
+            hashBlock(state, bytes.data() + offset, 16);
         if (offset < bytes.size())
-        {
-            const size_t count = std::min<size_t>(16, bytes.size() - offset);
-            for (size_t i = 0; i < count; ++i)
-            {
-                const unsigned shift = static_cast<unsigned>(56 - 8 * (i & 7U));
-                const uint64_t value = static_cast<uint64_t>(bytes[offset + i]) << shift;
-                if (i < 8)
-                    state.high ^= value;
-                else
-                    state.low ^= value;
-            }
-            state = multiply(state);
-        }
+            hashBlock(state, bytes.data() + offset, bytes.size() - offset);
     }
 
     /// Calculate GHASH over associated data and ciphertext, including bit lengths.
@@ -283,6 +306,26 @@ private:
         put64(result, 0, state.high);
         put64(result, 8, state.low);
         return result;
+    }
+
+    /// Complete GHASH length processing and combine it with AES(J0).
+    /// @param j0 Initial counter block derived from the message nonce.
+    /// @param state GHASH state after associated data and ciphertext.
+    /// @param associatedDataSize Associated-data length in bytes.
+    /// @param ciphertextSize Ciphertext length in bytes.
+    /// @return Full 128-bit GCM authentication tag.
+    Tag finishAuthenticationTag(const Tag& j0, FieldValue state,
+                                size_t associatedDataSize, size_t ciphertextSize) const
+    {
+        state.high ^= static_cast<uint64_t>(associatedDataSize) * 8U;
+        state.low ^= static_cast<uint64_t>(ciphertextSize) * 8U;
+        state = multiply(state);
+        Tag tag = aes.encryptBlock(j0);
+        const uint64_t high = get64(tag.data()) ^ state.high;
+        const uint64_t low = get64(tag.data() + 8) ^ state.low;
+        put64(tag, 0, high);
+        put64(tag, 8, low);
+        return tag;
     }
 
     /// Derive GCM's initial counter block from a nonce.
