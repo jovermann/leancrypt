@@ -168,7 +168,7 @@ int runCli(int argc, const char* argv[])
     cl.addOption('b', "bench", "Run benchmarks.");
     cl.addOption('B', "bench-filter", "Run benchmarks matching an fnmatch pattern, for example 'Aes*' or 'Hash*'; implies --bench.", "PATTERN", "*");
     cl.addOption('H', "hash", "Hash algorithm to use, or 'list' to list algorithms.", "HASH", "sha256");
-    cl.addOption('s', "size", "Data size for hash benchmarks in MBytes; AES uses 1/16 of this size.", "SIZE", "256");
+    cl.addOption('s', "size", "Data size for benchmarks in MBytes.", "SIZE", "256");
     cl.addOption('t', "test", "Run hash implementation tests.");
     cl.addOption('v', "verbose", "Increase verbosity. Specify multiple times to be more verbose.");
 

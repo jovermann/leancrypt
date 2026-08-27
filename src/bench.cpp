@@ -260,13 +260,11 @@ void runTests()
 /// Run benchmarks.
 void runBenchmarks(size_t size, const std::string& pattern)
 {
-    // AES is slower than the hashes, so process 1/16 of the requested size.
-    const size_t aesSize = size / 16;
     bool matched = false;
-    if (benchmarkMatches<Aes128>(pattern)) { runAesBench<Aes128>(aesSize); matched = true; }
-    if (benchmarkMatches<Aes256>(pattern)) { runAesBench<Aes256>(aesSize); matched = true; }
-    if (benchmarkMatches<Aes128Gcm>(pattern)) { runGcmBench<Aes128Gcm>(aesSize); matched = true; }
-    if (benchmarkMatches<Aes256Gcm>(pattern)) { runGcmBench<Aes256Gcm>(aesSize); matched = true; }
+    if (benchmarkMatches<Aes128>(pattern)) { runAesBench<Aes128>(size); matched = true; }
+    if (benchmarkMatches<Aes256>(pattern)) { runAesBench<Aes256>(size); matched = true; }
+    if (benchmarkMatches<Aes128Gcm>(pattern)) { runGcmBench<Aes128Gcm>(size); matched = true; }
+    if (benchmarkMatches<Aes256Gcm>(pattern)) { runGcmBench<Aes256Gcm>(size); matched = true; }
     if (benchmarkMatches<HashSha3_128>(pattern)) { runBench<HashSha3_128>(size); matched = true; }
     if (benchmarkMatches<HashSha3_224>(pattern)) { runBench<HashSha3_224>(size); matched = true; }
     if (benchmarkMatches<HashSha3_256>(pattern)) { runBench<HashSha3_256>(size); matched = true; }
